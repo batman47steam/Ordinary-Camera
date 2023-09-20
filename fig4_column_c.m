@@ -29,7 +29,7 @@ downsamp_factor = 3; %Downsampling of measurements 2^downsamp_factor
 viewAngleCorrection = 1;  %True/False
 useEstimatedOccPos = true; %Use estimated occluder position or not
 
-load_experiment_config_data_reconstruction
+load_experiment_config_data_reconstruction % 这个是function里面的一个函数，还不知道干了什么，反正把东西都加载出来了
 
 % Data path
 if ismac
@@ -40,26 +40,26 @@ end
 %%%%%%% Setup %%%%%%%% (Nothing to manually set here)
 
 % Wall/imaging plane
-wall_point = [FOV_LLCorner(1) + FOV_size(1)/2,D,FOV_LLCorner(2)+FOV_size(2)/2];  %Point on plane
+wall_point = [FOV_LLCorner(1) + FOV_size(1)/2,D,FOV_LLCorner(2)+FOV_size(2)/2];  %Point on plane D是相机和墙之间的距离，到底谁是原点
 wall_vector_1 = [FOV_size(1)/2,0,0]; %Vector defining one direction of FOV (and extent)
 wall_vector_2 = [0,0,FOV_size(2)/2]; %Vector defining the orthogonal direction (and extent)
-wall_normal = cross(wall_vector_1,wall_vector_2);
+wall_normal = cross(wall_vector_1,wall_vector_2); % 三维空间向量的叉积，确定法线
 wall_normal = wall_normal./norm(wall_normal);
 
 walln_points = floor(numPixels/(2^downsamp_factor)); %Number of points to render in each direction
 
 % Discretize imaging plane
 f_imageplane = gpuArray((zeros(walln_points)));
-wall_vec = (-1:2/(walln_points-1):1);
-wall_matr(1,:) = gpuArray((wall_point(1) + wall_vec*wall_vector_1(1) + wall_vec*wall_vector_2(1)));
-wall_matr(2,:) = gpuArray((wall_point(2) + wall_vec*wall_vector_1(2) + wall_vec*wall_vector_2(2)));
-wall_matr(3,:) = gpuArray((wall_point(3) + wall_vec*wall_vector_1(3) + wall_vec*wall_vector_2(3)));
+wall_vec = (-1:2/(walln_points-1):1); % 以2/（walln_points-1) 为间隔，在（-1，1）之间生成点，在墙面上一一定的间隔生成点
+wall_matr(1,:) = gpuArray((wall_point(1) + wall_vec*wall_vector_1(1) + wall_vec*wall_vector_2(1))); % Fov_1 Fov_1 0
+wall_matr(2,:) = gpuArray((wall_point(2) + wall_vec*wall_vector_1(2) + wall_vec*wall_vector_2(2))); % D     0     0
+wall_matr(3,:) = gpuArray((wall_point(3) + wall_vec*wall_vector_1(3) + wall_vec*wall_vector_2(3))); % Fov_2 0     Fov_2
 
-Monitor_xlim = [0 NumBlocks_col]*IlluminationBlock_Size(1) + Mon_Offset(1);
-Monitor_y = 0;
+Monitor_xlim = [0 NumBlocks_col]*IlluminationBlock_Size(1) + Mon_Offset(1); %  IlluminationBlock对应每个35x35像素块的实际大小
+Monitor_y = 0; % 相当于相机的位置是y轴的起点
 Monitor_zlim = [0 NumBlocks_row]*IlluminationBlock_Size(2) + Mon_Offset(2);
 Mon_xdiscr = (linspace(Monitor_xlim(1),Monitor_xlim(2),NumBlocks_col));
-Mon_zdiscr = (linspace(Monitor_zlim(2),Monitor_zlim(1),NumBlocks_row));
+Mon_zdiscr = (linspace(Monitor_zlim(2),Monitor_zlim(1),NumBlocks_row)); % 指定了元素的个数
 
 wallparam.wall_matr = wall_matr;
 wallparam.wall_point = wall_point;
