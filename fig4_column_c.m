@@ -21,7 +21,7 @@ addpath('Functions')
 clear variables;
 
 TestLetter = 'D11'; % Picks the test data to use
-numPixels = 1008; % Number of pixels in camera measurement
+numPixels = 1008; % Number of pixels in camera measurement，像素数目由什么决定
 
 % Parameters
 Ndiscr_mon = 6; %Discretization of each scene patch
@@ -39,14 +39,14 @@ elseif ispc
 end
 %%%%%%% Setup %%%%%%%% (Nothing to manually set here)
 
-% Wall/imaging plane
+% Wall/imaging plane wall point不就是FOV中心的位置
 wall_point = [FOV_LLCorner(1) + FOV_size(1)/2,D,FOV_LLCorner(2)+FOV_size(2)/2];  %Point on plane D是相机和墙之间的距离，到底谁是原点
 wall_vector_1 = [FOV_size(1)/2,0,0]; %Vector defining one direction of FOV (and extent)
 wall_vector_2 = [0,0,FOV_size(2)/2]; %Vector defining the orthogonal direction (and extent)
 wall_normal = cross(wall_vector_1,wall_vector_2); % 三维空间向量的叉积，确定法线
 wall_normal = wall_normal./norm(wall_normal);
 
-walln_points = floor(numPixels/(2^downsamp_factor)); %Number of points to render in each direction
+walln_points = floor(numPixels/(2^downsamp_factor)); %Number of points to render in each direction，这个是最后相机上拍了多少点吗
 
 % Discretize imaging plane
 f_imageplane = gpuArray((zeros(walln_points)));
@@ -56,7 +56,7 @@ wall_matr(2,:) = gpuArray((wall_point(2) + wall_vec*wall_vector_1(2) + wall_vec*
 wall_matr(3,:) = gpuArray((wall_point(3) + wall_vec*wall_vector_1(3) + wall_vec*wall_vector_2(3))); % Fov_2 0     Fov_2
 
 Monitor_xlim = [0 NumBlocks_col]*IlluminationBlock_Size(1) + Mon_Offset(1); %  IlluminationBlock对应每个35x35像素块的实际大小
-Monitor_y = 0; % 相当于相机的位置是y轴的起点
+Monitor_y = 0; % 相当于显示屏的位置是y轴的起点
 Monitor_zlim = [0 NumBlocks_row]*IlluminationBlock_Size(2) + Mon_Offset(2);
 Mon_xdiscr = (linspace(Monitor_xlim(1),Monitor_xlim(2),NumBlocks_col));
 Mon_zdiscr = (linspace(Monitor_zlim(2),Monitor_zlim(1),NumBlocks_row)); % 指定了元素的个数
@@ -93,7 +93,7 @@ switch scene
         sb = 16250/(Ndiscr_mon^2)*prod(subblocksperaxis)*1.04;
     case 'tommy'
         [test_image1,ground_truth1]=load_image1('image_test_smilehat20.mat',calibParams.filepath,downsamp_factor);
-        Occ_LLcorner = [0.4569 0.5744 0.2080]; %Estimated occluder position from localization script
+        Occ_LLcorner = [0.4569 0.5744 0.2080]; %Estimated occluder position from localization script 也是遮挡物最下角的坐标
         
         tv_reg_param = 1e07 * [5.72    6.76    5.72];  %TV regularization parameter
         
@@ -124,24 +124,25 @@ switch scene
 end
 
 %%
-% Occluder 
-occ_corner(1,:,1) = Occ_LLcorner;
+% Occluder Occ_size对应flat障碍物的长，宽，高 
+occ_corner(1,:,1) = Occ_LLcorner; % 从这个来看，应该也是最下方处顶点的位置
 occ_corner(2,:,1) = Occ_LLcorner + [Occ_size(1), 0, 0];
 occ_corner(3,:,1) = Occ_LLcorner + [Occ_size(1), 0, Occ_size(3)];
 occ_corner(4,:,1) = Occ_LLcorner + [0, 0, Occ_size(3)];
 
-occ_corner(1,:,2) = Occ_LLcorner + [Occ_size(1)/2-0.00275, 0, 0];
+occ_corner(1,:,2) = Occ_LLcorner + [Occ_size(1)/2-0.00275, 0, 0]; % 这个是板子下面的腿
 occ_corner(2,:,2) = Occ_LLcorner + [Occ_size(1)/2+0.00275, 0, 0];
 occ_corner(3,:,2) = Occ_LLcorner + [Occ_size(1)/2-0.00275, 0, -Occ_LLcorner(3)];
 occ_corner(4,:,2) = Occ_LLcorner + [Occ_size(1)/2+0.00275, 0, -Occ_LLcorner(3)];
-%%%%%%%%%%%%%%
+%%%%%%%%%%%%%% 上面是一个大的长方形，下面是一个小的长方形支撑着
 
 
 %% Simulate Transport Matrix
-disp('Simulating transport matrix...')
+disp('Simulating transport matrix...') % 关注下需要提供哪些参数，最后一个参数是moniter depth
 [simA] = simulate_A(wallparam, (occ_corner),simuParams, Mon_xdiscr,Mon_zdiscr, 0);
 
-%% Reconstruction
+%% Reconstruction 
+% sr, sg, sb 这些是进行重建的时候提供的，得到光传输矩阵以后，通过最优化的方法进行逆运算
 final_im1 = reconstruct_tv_it_cbg(simA,[sr,sg,sb],  test_image1, tv_reg_param, NumBlocks_sim, [0,0,0]);
 
 %% Plots
