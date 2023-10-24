@@ -89,7 +89,7 @@ for ii=1:n_iter
     
     if ii<2
         % Global search step
-        IIx = 5; IIy = 5; IIz = 5;
+        IIx = 5; IIy = 5; IIz = 5; % search grid 是5x5的
         simuParams.Ndiscr_mon = 2;
         xhatvals = linspace(0.1,0.6,IIx);
         yhatvals = linspace(0.1,0.6,IIy);

@@ -54,7 +54,7 @@ function [p_est, p_est_rgb, K_vals] = occluderposgridsearch(meas,simuParams,Occ_
 
 
 % Gather grid points of (p_o)_x, (p_o)_y and (p_o)_z for the search.
-xhatvals = gridvals(1,:);
+xhatvals = gridvals(1,:); % 这些就已经是实际要搜索的位置了
 yhatvals = gridvals(2,:);
 zhatvals = gridvals(3,:);
 
@@ -66,15 +66,16 @@ proj_yOnRangeA_b = zeros(II(1),II(2),II(3));
 % Preallocate array for storing number of singular values retained.
 K_vals = zeros(II(1),II(2),II(3));
 
-for iix=1:II(1)
+for iix=1:II(1) % 5x5x5
     for iiy=1:II(2)
         for iiz=1:II(3)
             % Define candidate occuder position (p_o)
-            Occ_LLcorner = [xhatvals(iix) yhatvals(iiy) zhatvals(iiz)];
-            Occluder = [Occ_LLcorner; Occ_LLcorner + Occ_size];
+            Occ_LLcorner = [xhatvals(iix) yhatvals(iiy) zhatvals(iiz)]; % 反正是障碍物最下角的一个点
+            Occluder = [Occ_LLcorner; Occ_LLcorner + Occ_size]; % 障碍物的两个角点都有了
             simuParams.Occluder = Occluder;
             
             % Simulate corresponding forward matrix, i.e. A(p_o)
+            % 是有了障碍物以后，他又根据这个障碍物算了一个光传输矩阵A
             [ simA, ~ ] = SimulateA_OccluderEstimation(simuParams, ds_factor);
             
             % Compute economical SVD of forward matrix A(p_o)
