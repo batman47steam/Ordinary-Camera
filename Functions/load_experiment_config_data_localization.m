@@ -30,7 +30,8 @@ FOV_size = [0.4372 0.4372];
 FOV_LLCorner = [0.5128 0.0482];
 FOV_cord = [FOV_LLCorner; FOV_LLCorner + FOV_size]; % 和上面的occluder一样，对应上下顶点的坐标
 
-% MONITOR CONFIG
+% MONITOR CONFIG， Mon_Offset后面又进行更新了，
+% 所以这个是一开始屏幕右下角的位置吗，这个x方向上的2cm有没有可能是屏幕的边框 ？？？
 Mon_Offset = [0.0210 0.136];        % (x,z)-position of the lower-right edge of usuable portion of LCD screen 因为显示的图案不一定能占满整个显示屏
 
 NumBlocks_col = NumBlocks_sim(2);   % Number of scene patches (horizontally)

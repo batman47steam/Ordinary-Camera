@@ -13,7 +13,7 @@ function [ occluder_image ] = simulate_occluder(wall_point, wall_vector_1, wall_
     % wall_point是FOV的中心，wall_vector_1其实就是FOV_size(1)/2
     % (wall_point-wall_vector) 其实就是FOV最下角的坐标吧
     % 乘上(walln_points/(wall_vector_1(1)*2)
-    % 得到的是在126x126中对应的相对坐标，而不是实际以m为单位的坐标，因为感兴趣的只是相机拍到的那部分
+    % 得到的是在126x126中对应的相对坐标，而不是实际以m为单位的坐标，因为感兴趣的只是相机拍到的那部分，126个点中的哪些个点
     occ_image_coords_1 = (occ_corner_proj(:,1) - (wall_point(1) - wall_vector_1(1))) * walln_points/(wall_vector_1(1)*2);
     occ_image_coords_2 = (occ_corner_proj(:,3) - (wall_point(3) - wall_vector_2(3))) * walln_points/(wall_vector_2(3)*2);
     

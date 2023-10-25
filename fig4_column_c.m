@@ -21,7 +21,7 @@ addpath('Functions')
 clear variables;
 
 TestLetter = 'D11'; % Picks the test data to use
-numPixels = 1008; % Number of pixels in camera measurement，像素数目由什么决定
+numPixels = 1008; % Number of pixels in camera measurement，像素数目由什么决定 (RGBG pattern转换以后就是1008*1008*3)
 
 % Parameters
 Ndiscr_mon = 6; %Discretization of each scene patch
@@ -50,11 +50,12 @@ walln_points = floor(numPixels/(2^downsamp_factor)); %Number of points to render
 
 % Discretize imaging plane
 f_imageplane = gpuArray((zeros(walln_points)));
-wall_vec = (-1:2/(walln_points-1):1); % 以2/（walln_points-1) 为间隔，在（-1，1）之间生成点，在墙面上一一定的间隔生成点
+wall_vec = (-1:2/(walln_points-1):1); % 以2/（walln_points-1) 为间隔，在（-1，1）之间生成walln_points-1个点
 wall_matr(1,:) = gpuArray((wall_point(1) + wall_vec*wall_vector_1(1) + wall_vec*wall_vector_2(1))); % Fov_1 Fov_1 0
 wall_matr(2,:) = gpuArray((wall_point(2) + wall_vec*wall_vector_1(2) + wall_vec*wall_vector_2(2))); % D     0     0
 wall_matr(3,:) = gpuArray((wall_point(3) + wall_vec*wall_vector_1(3) + wall_vec*wall_vector_2(3))); % Fov_2 0     Fov_2
 
+% Mon_offset(1)我理解的是屏幕有效显示区域low-right-corner的坐标
 Monitor_xlim = [0 NumBlocks_col]*IlluminationBlock_Size(1) + Mon_Offset(1); %  IlluminationBlock对应每个35x35像素块的实际大小
 Monitor_y = 0; % 相当于显示屏的位置是y轴的起点
 Monitor_zlim = [0 NumBlocks_row]*IlluminationBlock_Size(2) + Mon_Offset(2);
@@ -132,7 +133,7 @@ occ_corner(4,:,1) = Occ_LLcorner + [0, 0, Occ_size(3)];
 
 occ_corner(1,:,2) = Occ_LLcorner + [Occ_size(1)/2-0.00275, 0, 0]; % 这个是板子下面的腿
 occ_corner(2,:,2) = Occ_LLcorner + [Occ_size(1)/2+0.00275, 0, 0];
-occ_corner(3,:,2) = Occ_LLcorner + [Occ_size(1)/2-0.00275, 0, -Occ_LLcorner(3)];
+occ_corner(3,:,2) = Occ_LLcorner + [Occ_size(1)/2-0.00275, 0, -Occ_LLcorner(3)]; % Occ_LLcorner(3) - Occ_LLcorner(3) = 0 所以z的起点就是地面啊
 occ_corner(4,:,2) = Occ_LLcorner + [Occ_size(1)/2+0.00275, 0, -Occ_LLcorner(3)];
 %%%%%%%%%%%%%% 上面是一个大的长方形，下面是一个小的长方形支撑着
 
