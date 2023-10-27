@@ -58,7 +58,64 @@ switch TestLetter
         
         IlluminationBlock_Size = PixelSize_m.*NumPixelsPerMonitorBlock./[subblocksperaxis(2) subblocksperaxis(1)];
        
+    case '10-25'
+        filename = 'TestPosD11'; % file_name要改成对应的，而且要知道他加载的目的是什么
+        subblocksperaxis = [1 1];
+        NumBlocks_sim = [8 8].*subblocksperaxis;
+        NumBlocks_cal = [8 8];
+        D = 1.03;
         
+        % OCCLUDER DEFINITION
+        Occ_size = [0.077 0 0.077];
+        if useEstimatedOccPos
+            %% Estimated using occluder localization scripts
+            % projection for H & T
+            %Occ_LLcorner = [1 0.8 0.912]; % 这么严格，还会检查两个if语句是否一样
+
+            % Projection for mushroom
+            Occ_LLcorner = [0.4583 0.5408 0.2026];
+            
+            %Projection for Tommy
+            %Occ_LLcorner = [0.4569 0.5744 0.2080];
+            
+            % Projection for BU red (bur)
+            %Occ_LLcorner = [0.4733   0.5661    0.2072];
+          
+            % Projection for RGB bars (colbar)
+            %Occ_LLcorner = [0.4693 0.5629 0.2080];
+            
+            %%
+        else
+            % True
+            %Occ_LLcorner = [0.475 D-0.460 0.214];
+            Occ_LLcorner = [1 0.8 0.912];
+        end
+        
+        Occluder = [Occ_LLcorner; Occ_LLcorner + Occ_size];
+        
+        %CAMERA CONFIG
+        FOV_size = [0.1914 0.1914];
+        FOV_LLCorner = [1.115+0.08448 0.83+0.08448 ];
+        FOV_cord = [FOV_LLCorner; FOV_LLCorner + FOV_size];
+        
+        % MONITOR CONFIG, 这个取决于最后他到底是怎么得到每一块光源的
+        Mon_Offset = [0.0820 0.756];
+        
+        NumBlocks_col = NumBlocks_cal(2);
+        NumBlocks_row = NumBlocks_cal(1);
+        ScreenSize = [0.345 0.195];
+        ScreenResolution = [3840 2160];
+        NumPixelsPerMonitorBlock = 270;
+        PixelSize_m = (ScreenSize./ScreenResolution);
+        
+        % 这个应该是面对着屏幕的时候从右上角开始显示图片，所以要加上边缘的位置
+        % Mon_Offset(2) = Mon_Offset(2) + PixelSize_m(2)*mod(ScreenResolution(2),NumBlocks_cal(1));
+        % Mon_Offset(1) = Mon_Offset(1) + 1*PixelSize_m(1)*mod(ScreenResolution(1),NumBlocks_cal(2));
+
+        % 但是我其实是在面对屏幕时候的最左上角显示的，所以Mon_Offset直接就是起点
+
+        
+        IlluminationBlock_Size = PixelSize_m.*NumPixelsPerMonitorBlock./[subblocksperaxis(2) subblocksperaxis(1)];
         
     case 'D11Video'
         filename = 'TestPosD11Video';

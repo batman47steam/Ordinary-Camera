@@ -41,7 +41,7 @@ numPixels = 1008;
 Ndiscr_mon = 1;             % First coarse grid!
 viewAngleCorrection = true;
 useEstimatedOccPos = false;
-load_experiment_config_data_localization;
+load_experiment_config_data_localization; % 这里加载实验中测量出来的那些参数
 
 downsamp_factor = 4;
 bgSub = 0;
