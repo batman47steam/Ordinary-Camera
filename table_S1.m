@@ -34,17 +34,17 @@ close all; clc;
 %           * Mushroom scene:       'mushroom'
 %           * Tommy scene:          'tommy'
 
-testscene = 'mushroom';
-numPixels = 1008;
+testscene = '10-25';
+numPixels = 1089; % 感兴趣区域一个方向上像素的数目, 2048*2048, 从1024的中间位置开始往两边截取544,
 
 % MONITOR DISCRETIZATION
 Ndiscr_mon = 1;             % First coarse grid!
-viewAngleCorrection = true;
+viewAngleCorrection = 0; % 先不进行correlation (true)
 useEstimatedOccPos = false;
 load_experiment_config_data_localization; % 这里加载实验中测量出来的那些参数
-
-downsamp_factor = 4;
-bgSub = 0;
+% 改成32倍下采样
+downsamp_factor = 5; % 要注意downsample这里，控制住在FOV区块内生成的像素数目是一致的，直接乘上去得到新的像素数目
+bgSub = 0; % 这里有背景减除吗，稍微注意一下
 
 switch lower(testscene)
     case 'rgb'
@@ -59,6 +59,7 @@ switch lower(testscene)
         sigma_th2 = 0.5;
     case 'mushroom'
         [camera_capture,ground_truth1]=load_image1('image_test_mushroom20.mat',datafilepath,downsamp_factor);
+        imshow(camera_capture)
         n_iter = 3;
         sigma_th1 = 0.75;
         sigma_th2 = 0.2;
@@ -67,33 +68,62 @@ switch lower(testscene)
         n_iter = 4;
         sigma_th1 = 0.75;
         sigma_th2 = 0.5;
+    case '10-25'
+        % 读取拍摄的照片，抠出FOV对应的ROI区域
+        % ground_truth1 就算加载进来也没什么实际的作用啊！
+        camera_capture = double(imread("pattern.tif"));
+        camera_capture = camera_capture(480:1568-1, 480:1568-1)-245;
+        camera_capture(camera_capture<0) = 0;
+        % camera_capture = fliplr(imresize(camera_capture, 0.2, 'bilinear')); % 坐标系统一，面向屏幕
+        % camera_capture = load("projection.mat")
+        % camera_capture = double(camera_capture.y)
+        % imshow(camera_capture, [])
+        %camera_capture = flipud(imresize(camera_capture, 0.2, 'bilinear'));
+
+        %[camera_capture,ground_truth1]=load_image1('image_test_tommy20.mat',datafilepath,downsamp_factor);
+        for i=1:5
+            im1 = camera_capture(1:2:end,1:2:end);
+            im2 = camera_capture(1:2:end,2:2:end);
+            im3 = camera_capture(2:2:end,1:2:end);
+            im4 = camera_capture(2:2:end,2:2:end);
+    
+            image = (im1+im2+im3+im4)/4;
+            camera_capture = image;
+        end
+
+        camera_capture = fliplr(camera_capture);
+        
+        n_iter = 4;
+        sigma_th1 = 0.75;
+        sigma_th2 = 0.5;
+
     otherwise
         disp('No such test scene exists, try ''RGB,')
 end
 
 
-
-
-meas.r = camera_capture(:,:,1);
-meas.g = camera_capture(:,:,2);
-meas.b = camera_capture(:,:,3);
+% 现在只有一个通道，随便保留一个算了
+meas.r = camera_capture(:,:,1); % 分别再取出每个通道, 输入图片的shape肯定要一致
+%meas.g = camera_capture(:,:,2);
+%meas.b = camera_capture(:,:,3);
 
 N_oneparam = 30;
 
 
 %
 p_est_all = zeros(n_iter,3);
-range_vals = [0.025 0.0125 0.00625 0.003125]*4;
+range_vals = [0.025 0.0125 0.00625 0.003125]*4; % 不明确是干什么的
+%range_vals = [0.1 0.05 0.025 0.0125]*4; % 不明确是干什么的
 for ii=1:n_iter
     a = tic;
     
-    if ii<2
+    if ii<2 % 就第一步global search，5x5x5的过那么一次
         % Global search step
         IIx = 5; IIy = 5; IIz = 5; % search grid 是5x5的
-        simuParams.Ndiscr_mon = 2;
-        xhatvals = linspace(0.1,0.6,IIx);
-        yhatvals = linspace(0.1,0.6,IIy);
-        zhatvals = linspace(0.0,0.3,IIz);
+        simuParams.Ndiscr_mon = 2; % 这个是控制什么的
+        xhatvals = linspace(0.6,1.2,IIx);
+        yhatvals = linspace(0.6,0.9,IIy); % 障碍物的位置是用D-p_y求出来的 0.1-0.6
+        zhatvals = linspace(0.5,1.1,IIz);
         II = [IIx IIy IIz];
         gridvals(1,:) =  xhatvals;
         gridvals(2,:) =  yhatvals;
@@ -108,7 +138,7 @@ for ii=1:n_iter
         sigma_th = sigma_th2/(10^(ii-2));
         
         gridvals(1,:) =  linspace(p_est(1) - arange_val, p_est(1) + arange_val, N_oneparam);
-        xhatvals = gridvals(1,:);
+        xhatvals = gridvals(1,:); % 先改变了x的区间，其他的区间不变
         gridvals(2,:) =  p_est(2); gridvals(3,:) =  p_est(3);
         II = [N_oneparam 1 1];
         [p_est, ~] = occluderposgridsearch(meas,simuParams,Occ_size,...
@@ -134,12 +164,12 @@ for ii=1:n_iter
         gridvals(3,:) =  zhatvals;
     end
     
-    p_est_all(ii,:)  = p_est;
+    p_est_all(ii,:)  = p_est; % 每次迭代的结果都会装在里面，然后取最后一次的作为结果
     disp(['Interation: ',num2str(ii),', Time Elapsed (s): ' num2str(toc(a))]);
 end
 
 % Correct reference point for y-axis (to match manuscript's Fig. 1)
-p_est(2) = D - p_est(2);
+%p_est(2) = D - p_est(2); % 应该只是说他得出的障碍物的位置，要对应fig1里面的那个y轴的方向
 disp('Estimated Occluder Position [(hat{p}_o)_x, (hat{p}_o)_y, (hat{p}_o)_z] = p_est')
 
 p_est

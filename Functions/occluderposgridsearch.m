@@ -30,7 +30,7 @@ function [p_est, p_est_rgb, K_vals] = occluderposgridsearch(meas,simuParams,Occ_
 %                                   -simuParams.Mon_Offset: LCD position in (x,z)-plane
 %       * Occ_size (1 x 2 matrix):  Dimensions of occluder [Length (x-axis), Height (z-axiz)] m.
 %       * gridvals (3 x N):         Gridpoints along x, y and z coordinates for candidate occluder positions p_o.
-%       * II (1 x 3):               Number of gridpoints along each x, y, z.
+%       * II (1 x 3):               Number of gridpoints along each x, y, z.  个
 %       * ds_factor (scalar):       Amount of downsampling applied onto the camera measurement (=number of rows of A).
 %       * sigma_th (scalar):        Normalized singular values threshold used.
 %
@@ -59,9 +59,9 @@ yhatvals = gridvals(2,:);
 zhatvals = gridvals(3,:);
 
 % Preallocate arrays for storing norm (2) for each candidate position p_o.
-proj_yOnRangeA_r = zeros(II(1),II(2),II(3));
-proj_yOnRangeA_g = zeros(II(1),II(2),II(3));
-proj_yOnRangeA_b = zeros(II(1),II(2),II(3));
+proj_yOnRangeA_r = zeros(II(1),II(2),II(3)); % 因为是单通道，所以只留下一个红色的通道
+%proj_yOnRangeA_g = zeros(II(1),II(2),II(3));
+%proj_yOnRangeA_b = zeros(II(1),II(2),II(3));
 
 % Preallocate array for storing number of singular values retained.
 K_vals = zeros(II(1),II(2),II(3));
@@ -75,38 +75,39 @@ for iix=1:II(1) % 5x5x5
             simuParams.Occluder = Occluder;
             
             % Simulate corresponding forward matrix, i.e. A(p_o)
-            % 是有了障碍物以后，他又根据这个障碍物算了一个光传输矩阵A
-            [ simA, ~ ] = SimulateA_OccluderEstimation(simuParams, ds_factor);
-            
+            % 是有了障碍物以后，他又根据这个障碍物算了一个光传输矩阵A，downsample_factor被传入到这个里面了，大概率和估计FOV上形成的图案有关
+            [ simA, ~ ] = SimulateA_OccluderEstimation(simuParams, ds_factor); % Fov上形成的图案根本没接受
             % Compute economical SVD of forward matrix A(p_o)
             [U, S, ~] = svd(simA, 'econ');
-            vecS = diag(S)/S(1);            % Normalize singular values by largest
+            vecS = diag(S)/S(1);            % Normalize singular values by largest, 最大的除以最大的，总是有一个1
             K = min(sum(vecS>sigma_th),10);	% Number of largest singular values retained
             K_vals(iix,iiy,iiz) = sum(vecS>sigma_th); % Save K values for viewing
             
             % Compute norm of low dimensional projection of measurements,
             % y, along range space of A for each colour channel.
-            proj_yOnRangeA_r(iix,iiy,iiz) = norm(U(:,1:K)'*(meas.r(:)));
-            proj_yOnRangeA_g(iix,iiy,iiz) = norm(U(:,1:K)'*(meas.g(:)));
-            proj_yOnRangeA_b(iix,iiy,iiz) = norm(U(:,1:K)'*(meas.b(:)));
+            proj_yOnRangeA_r(iix,iiy,iiz) = norm(U(:,1:K)'*(meas.r(:))); % 输入图片会影响到这里, grid-search就是根据这里来取出最大值
+            %proj_yOnRangeA_g(iix,iiy,iiz) = norm(U(:,1:K)'*(meas.g(:)));
+            %proj_yOnRangeA_b(iix,iiy,iiz) = norm(U(:,1:K)'*(meas.b(:)));
         end
     end
 end
 
+% 如果是单通道按理来说只要传入一个
 % Retrieve the (p_o) value that yields the maximum energy for red channel
-[~,Indx] = max(proj_yOnRangeA_r(:));
-[I_x, I_y, I_z] = ind2sub(size(proj_yOnRangeA_r),Indx);
+[~,Indx] = max(proj_yOnRangeA_r(:)); % max
+[I_x, I_y, I_z] = ind2sub(size(proj_yOnRangeA_r),Indx); % 这里其实都已经决定初步的结果了
 p_est_rgb(1,:) = [xhatvals(I_x) yhatvals(I_y) zhatvals(I_z)];
 
 % Retrieve the (p_o) value that yields the maximum energy for green channel
-[~,Indx] = max(proj_yOnRangeA_g(:));
-[I_x, I_y, I_z] = ind2sub(size(proj_yOnRangeA_g),Indx);
-p_est_rgb(2,:) = [xhatvals(I_x) yhatvals(I_y) zhatvals(I_z)];
+% [~,Indx] = max(proj_yOnRangeA_g(:));
+% [I_x, I_y, I_z] = ind2sub(size(proj_yOnRangeA_g),Indx);
+% p_est_rgb(2,:) = [xhatvals(I_x) yhatvals(I_y) zhatvals(I_z)];
 
 % Retrieve the (p_o) value that yields the maximum energy for blue channel
-[~,Indx] = max(proj_yOnRangeA_b(:));
-[I_x, I_y, I_z] = ind2sub(size(proj_yOnRangeA_b),Indx);
-p_est_rgb(3,:) = [xhatvals(I_x) yhatvals(I_y) zhatvals(I_z)];
+% [~,Indx] = max(proj_yOnRangeA_b(:));
+% [I_x, I_y, I_z] = ind2sub(size(proj_yOnRangeA_b),Indx);
+% p_est_rgb(3,:) = [xhatvals(I_x) yhatvals(I_y) zhatvals(I_z)];
 
 % Take their average
-p_est = mean(p_est_rgb);
+%p_est = mean(p_est_rgb);
+p_est = p_est_rgb;
