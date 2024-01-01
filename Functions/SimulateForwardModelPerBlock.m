@@ -53,7 +53,7 @@ NumBlocks_row = NumBlocks(1);
 
 % WALL DEFINITION
 LambertianWall_xlim = FOV(:,1); %[0.5335 0.988];
-LambertianWall_y = Dist_MonWall;
+LambertianWall_y = Dist_MonWall; % wall的坐标是Dist_MonWall，所以y轴的方向没错
 LambertianWall_zlim = FOV(:,2); %[0 0.51];
 Wall_xdiscr = linspace(LambertianWall_xlim(1),LambertianWall_xlim(2),numPixels);
 Wall_zdiscr = linspace(LambertianWall_zlim(1),LambertianWall_zlim(2),numPixels);
@@ -78,17 +78,17 @@ end
 
 
 Monitor_xlim = [0 NumBlocks_col]*IlluminationBlock_size(1) + MonitorOffset_x;
-Monitor_y = 0;
+Monitor_y = 0; % 显示屏的y是0，这个也没问题啊
 Monitor_zlim = [0 NumBlocks_row]*IlluminationBlock_size(2) + MonitorOffset_z;
 N_monDiscr_row = Ndiscr_mon*NumBlocks_row;
 N_monDiscr_col = Ndiscr_mon*NumBlocks_col;
 Mon_xdiscr = linspace(Monitor_xlim(1),Monitor_xlim(2),N_monDiscr_col);
-Mon_zdiscr = linspace(Monitor_zlim(2),Monitor_zlim(1),N_monDiscr_row);
+Mon_zdiscr = linspace(Monitor_zlim(2),Monitor_zlim(1),N_monDiscr_row); % 这里的z也是翻转了
 
 
 % INITIALIZE ALL DESIRED SCENE/MONITOR PATCHES TO BE COMPUTED (number of columns of A matrix)
 ActiveBlocks_matrix = zeros(NumBlocks_row,NumBlocks_col);
-ActiveBlocks_matrix(ActiveBlocks_coord(:,1),ActiveBlocks_coord(:,2)) = 1; % Intensity of blocks.
+ActiveBlocks_matrix(ActiveBlocks_coord(:,1),ActiveBlocks_coord(:,2)) = 1; % Intensity of blocks. 亮的是屏幕最左上的
 MonitorPattern_comp = kron(ActiveBlocks_matrix,ones(Ndiscr_mon,Ndiscr_mon));
 MonPattern = MonitorPattern_comp;
 MonitorPattern_comp = (fliplr(MonitorPattern_comp))';

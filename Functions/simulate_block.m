@@ -44,3 +44,5 @@ function [image] = simulate_block(wall_mat,wall_point, wall_vector_1, wall_vecto
 
 end
 
+
+
