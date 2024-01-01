@@ -61,8 +61,8 @@ switch TestLetter
     case '10-25'
         filename = 'TestPosD11'; % file_name要改成对应的，而且要知道他加载的目的是什么
         subblocksperaxis = [1 1];
-        NumBlocks_sim = [8 8].*subblocksperaxis;
-        NumBlocks_cal = [8 8];
+        NumBlocks_sim = [128 128].*subblocksperaxis;
+        NumBlocks_cal = [128 128];
         D = 1.03;
         
         % OCCLUDER DEFINITION
@@ -89,13 +89,15 @@ switch TestLetter
             % True
             %Occ_LLcorner = [0.475 D-0.460 0.214];
             Occ_LLcorner = [1 0.8 0.912];
+            %Occ_LLcorner = [0.9319 0.7112 0.9595]
+            %Occ_LLcorner = [0.7, 0.5250, 0.8750];
         end
         
         Occluder = [Occ_LLcorner; Occ_LLcorner + Occ_size];
         
         %CAMERA CONFIG
         FOV_size = [0.1914 0.1914];
-        FOV_LLCorner = [1.115+0.08448 0.83+0.08448 ];
+        FOV_LLCorner = [1.115+0.08448 0.83+0.08448]; % 因为只在Fov中截取了一小块，所以计算时候的Fov往里面缩小一点
         FOV_cord = [FOV_LLCorner; FOV_LLCorner + FOV_size];
         
         % MONITOR CONFIG, 这个取决于最后他到底是怎么得到每一块光源的
@@ -105,7 +107,7 @@ switch TestLetter
         NumBlocks_row = NumBlocks_cal(1);
         ScreenSize = [0.345 0.195];
         ScreenResolution = [3840 2160];
-        NumPixelsPerMonitorBlock = 270;
+        NumPixelsPerMonitorBlock = 16;
         PixelSize_m = (ScreenSize./ScreenResolution);
         
         % 这个应该是面对着屏幕的时候从右上角开始显示图片，所以要加上边缘的位置
@@ -114,7 +116,11 @@ switch TestLetter
 
         % 但是我其实是在面对屏幕时候的最左上角显示的，所以Mon_Offset直接就是起点
 
-        
+        % 不能够整除的时候
+        Mon_Offset(2) = Mon_Offset(2) + PixelSize_m(2)*mod(ScreenResolution(2),NumBlocks_cal(1));
+        %Mon_Offset(1) = Mon_Offset(1) + 1*PixelSize_m(1)*mod(ScreenResolution(1),NumBlocks_cal(2));
+
+        % 和多少个像素组成一个block相关的，应该就是这里了
         IlluminationBlock_Size = PixelSize_m.*NumPixelsPerMonitorBlock./[subblocksperaxis(2) subblocksperaxis(1)];
         
     case 'D11Video'

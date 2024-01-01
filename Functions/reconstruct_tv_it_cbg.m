@@ -2,18 +2,23 @@ function [reconstruction] = reconstruct_tv_it_cbg(A,cscale, measurement, reg, Nu
 %% Forms the scene reconstruction given a measurement image and using the A matrices.
   
    % Difference matrix
-   Diff = diag(ones(1,size(A,1)),0) - diag(ones(1,size(A,1)-1),1);
+   Diff = diag(ones(1,size(A,1)),0) - diag(ones(1,size(A,1)-1),1); % 论文中好像是说这样能够消除掉b，background的影响
 
    % Difference measurements
-    mr = (Diff*reshape(measurement(:,:,1),[],1));
+    mr = (Diff*reshape(measurement(:,:,1),[],1)); % Dy, 相邻的测量值依次相减
     mg = (Diff*reshape(measurement(:,:,2),[],1));
     mb = (Diff*reshape(measurement(:,:,3),[],1));
     
-    dA = (Diff*A);
+    dA = (Diff*A); % A也是相邻的行依次相减, 最后一行没东西去减，还是自身，测量值和A都是自身，还是能对应上的
     AT = dA';
     ATA = AT*dA;
 
-    % Initial estimates
+    % simA = dA
+    % pattern = mr
+    % pattern = reshape(pattern, [218, 218])
+    % save('nlos.mat', 'pattern', 'simA') % 直接保存成结构体倒是挺炫酷的
+
+    % Initial estimates，得到初始估计，就是没有用最优化的方法，直接通过伪逆来得到初始的估计
     disp(' Making initial estimate...')
     
     if tik_reg>0  %Tikhinov regularization with 1/f DCT prior can be a good initialization
@@ -27,20 +32,26 @@ function [reconstruction] = reconstruct_tv_it_cbg(A,cscale, measurement, reg, Nu
         DtD = 0;
     end
     
-    testr = rs(( cscale(1)^2 * ATA + tik_reg(1)^4*(DtD))\(cscale(1)*AT) * mr(:));
+    
+    testr = rs(( cscale(1)^2 * ATA + tik_reg(1)^4*(DtD))\(cscale(1)*AT) * mr(:)); % 本质上就是A的伪逆乘上y，(A^TA)^-1 * y
     testg = rs(( cscale(2)^2 * ATA + tik_reg(2)^4*(DtD))\(cscale(2)*AT) * mg(:));
     testb = rs(( cscale(3)^2 * ATA + tik_reg(3)^4*(DtD))\(cscale(3)*AT) * mb(:));
     
-
+    % init Gauss是由估计的A通过最小二乘得到
+    pattern = measurement(:,:,1);
+    testr = rs(double(A) \ double(pattern(:)));
+    imshow(testr, [])
+    
+    imshow(testr, []) % 可以简单看下初始猜测求逆的结果, 好像不管cscale(1)不管怎么变，testr显示出来的pattern几乎不变
     %%
     % TV Parameters
     tvparams.constraints = 'none';
 
     % Cost function (g(x) + h(x)), gradient (dg(x)) and proximal operator
-    grad = @(x,constants) rs((-constants.ATm + constants.ATA*x(:))); 
+    grad = @(x,constants) rs((-constants.ATm + constants.ATA*x(:))); % 就是||Af-y||这个矩阵二范数的平方的导数
     prox = @(x,params) co_prox_tv(rs(x), params.lambda, tvparams);
-    calc_H = @(x,constants) constants.lamb* sum(sum(sqrt([diff(x,1,1).^2;zeros(1,size(x,2))] +[diff(x,1,2).^2,zeros(size(x,1),1)])));
-    calc_G = @(x,constants)  0.5*norm(constants.meas - constants.A*x(:)).^2;
+    calc_H = @(x,constants) constants.lamb* sum(sum(sqrt([diff(x,1,1).^2;zeros(1,size(x,2))] +[diff(x,1,2).^2,zeros(size(x,1),1)]))); % diff(x,1,1)其实就是求相邻位置的差值，[;]用来补齐回原来的shape
+    calc_G = @(x,constants)  0.5*norm(constants.meas - constants.A*x(:)).^2; % ||y-Af|| meas是meansure值y，x是hidden scene (y), 这里就是二范数吧
     
     % FISTA solver params
 
@@ -50,8 +61,9 @@ function [reconstruction] = reconstruct_tv_it_cbg(A,cscale, measurement, reg, Nu
     constants.ATm = cscale(1)*AT*mr(:);
     constants.ATA = cscale(1)^2 * ATA;
     constants.meas = mr(:);
-    constants.lamb = reg(1);
-    [r_opt] = fista_backtrack(grad, prox, testr, 1e-5, 1,  struct('lambda',reg(1)), calc_H, calc_G, constants);
+    constants.lamb = reg(1); % 正则化项参数lambda
+    [r_opt] = fista_backtrack(grad, prox, testr, 1e-6, 1,  struct('lambda',reg(1)), calc_H, calc_G, constants);
+    imshow(r_opt)
     
     disp(' Reconstructing green channel...')
     constants.A = cscale(2)*dA;
@@ -84,7 +96,7 @@ end
 
 
 
-
+% 不光是TV正则化，还要求解最小二乘的结果
 function [solution] = co_prox_tv(input, lambda, params)
 %% Solves prox_tv(Y) = argmin_X  1/2 ||X-Y||^2 + lambda*TV(X)
 % Using method from Beck & Teboulle (2009)
@@ -102,12 +114,12 @@ function [solution] = co_prox_tv(input, lambda, params)
 
 %% Optional inputs
 if nargin==2
-    params.tvtol = 1e-6;
+    params.tvtol = 1e-6; % 1e-6
     params.constraint = 'none';
     params.usegpu = 0;
 else
     if ~isfield(params, 'tol')
-        params.tvtol = 1e-6;
+        params.tvtol = 1e-10; % 改变这里的
     end
 
     if ~isfield(params, 'constraint')
@@ -216,9 +228,9 @@ while(1)
     %% Stopping crit
     tmp = (b-sol).^2;
     cur_val = .5*nansum(tmp(:)) +   lambda .* nansum(sqrt(tmpr(:).^2 + tmps(:).^2));
-    rel_obj = abs(cur_val-old_val)/cur_val;
+    rel_obj = abs(cur_val-old_val)/cur_val; % 主要是cur_val是0，导致除的时候带来问题
 
-    if rel_obj<params.tvtol
+    if rel_obj<params.tvtol % 这里是NaN，所以总是没办法break出去
         break;
     end
 
@@ -248,7 +260,7 @@ function [X] = fista_backtrack(grad, proj, Xinit, step, alpha, opts, calc_H, cal
 %     step: Initial step size
 %     alpha: FISTA relaxation
 %       opts   : a struct
-%           opts.lambda  : a regularization parameter, can be either a scalar or
+%           opts.lambda  : a regularization parameter, can be either a scalar or 
 %                           a weighted matrix.
 %           opts.max_iteration: maximum iterations of the algorithm. 
 %                           Default 300.
@@ -261,30 +273,30 @@ function [X] = fista_backtrack(grad, proj, Xinit, step, alpha, opts, calc_H, cal
 %       calc_H: a function calculating h(x) (regularizer)
 
     if ~isfield(opts, 'max_iteration')
-        opts.max_iteration = 1100;
+        opts.max_iteration = 1100; % opts这个结构体里面，只有lambda是传入的，其他预先设定
     end       
     if ~isfield(opts, 'tol')
-        opts.tol = 2.4e-6;
+        opts.tol = 1.e-6; % 2.4e-6
     end
     if ~isfield(opts, 'verbose')
         opts.verbose = false;
     end
 
-    x_old = Xinit;
+    x_old = Xinit; % Xinit对应一开始重建出来的hidden scene
     y_old = Xinit;
     t_old = 1;
     iter = 0;
-    cost(1) = feval(calc_G,Xinit,constants) + feval(calc_H,Xinit,constants);
-    lambda = opts.lambda;
+    cost(1) = feval(calc_G,Xinit,constants) + feval(calc_H,Xinit,constants); % 初始的损失，这里只是数值
+    lambda = opts.lambda; % 获取正则化的参数
     
-    opts_proj = opts;
-    opts_proj.lambda = lambda*step;
+    opts_proj = opts; % opts的参数实际上是带到prox，也就是con_prox_tv里面的
+    opts_proj.lambda = lambda*step; % 为什么要乘上step
 
     while  iter < opts.max_iteration
         iter = iter + 1;
 
-        yoldgrad = feval(grad, y_old, constants);
-        x_new = feval(proj, y_old - (step)*yoldgrad, opts_proj);
+        yoldgrad = feval(grad, y_old, constants); % y_old是一开始估计的hidden scene, 也可以说是f吧, x=y_old, 
+        x_new = feval(proj, y_old - (step)*yoldgrad, opts_proj); % 这个不就是梯度下降
         t_new = 0.5*(1 + sqrt(1 + 4*t_old^2));
         y_new = x_new + alpha*(t_old - 1)/t_new * (x_new - x_old);
         
@@ -307,7 +319,7 @@ function [X] = fista_backtrack(grad, proj, Xinit, step, alpha, opts, calc_H, cal
         e = norm(x_new - x_old)/numel(x_new);
         if iter>10
         if e < opts.tol
-            break;
+            break; % opts.tol控制这里
         end
         end
         

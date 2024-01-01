@@ -21,12 +21,12 @@ addpath('Functions')
 clear variables;
 
 TestLetter = '10-25'; % Picks the test data to use
-numPixels = 1089; % Number of pixels in camera measurement，像素数目由什么决定 (RGBG pattern转换以后就是1008*1008*3)
+numPixels = 1280; % Number of pixels in camera measurement，像素数目由什么决定 (RGBG pattern转换以后就是1008*1008*3)
 
 % Parameters
 %Ndiscr_mon = 6; %Discretization of each scene patch,每个block里面又离散化为6个点
 Ndiscr_mon = 6;
-downsamp_factor = 0.2 % imresize的降采样率，直接乘上去的
+downsamp_factor = 0.1 % imresize的降采样率，直接乘上去的
 %downsamp_factor = 3; %Downsampling of measurements 2^downsamp_factor
 viewAngleCorrection = 0;  %True/False
 useEstimatedOccPos = 0; %Use estimated occluder position or not
@@ -48,7 +48,7 @@ wall_vector_2 = [0,0,FOV_size(2)/2]; %Vector defining the orthogonal direction (
 wall_normal = cross(wall_vector_1,wall_vector_2); % 三维空间向量的叉积，确定法线
 wall_normal = wall_normal./norm(wall_normal);
 
-walln_points = floor(numPixels * downsamp_factor+1); 
+walln_points = floor(numPixels * downsamp_factor); % 主要目的是为了和加载进来的ROI图片的像素数目一致
 %walln_points = floor(numPixels/(2^downsamp_factor)); %Number of points to render in each direction，这个是最后相机上拍了多少点吗
 
 % Discretize imaging plane
@@ -130,14 +130,31 @@ switch scene
         % 先随便的瞎读一下，反正simulateA的时候也不需要图片信息啊！
         %[test_image1,ground_truth1]=load_image1('image_test_colbar20.mat',calibParams.filepath,downsamp_factor);
         %Occ_LLcorner = [0.4693 0.5629 0.2080]; %Estimated occluder position from localization script
-        Occ_LLcorner = [1 0.8 0.912]
+        %Occ_LLcorner = [1 0.8 0.912]
+        Occ_LLcorner = [1 0.8 0.92]
+        %Occ_LLcorner = [1.0147, 0.8207, 0.9181];
         % tv正则化先也不需要去管
-        tv_reg_param = 1e06 * [52.5   50   47.5];  %TV regularization parameter
+        tv_reg_param = [1000   10   10];  %TV regularization parameter
         
         %Discretization dependent scaling of A matrix
-        sr = 1.4063e+04/(Ndiscr_mon^2)*prod(subblocksperaxis)*0.9; 
-        sg = 1.4063e+04/(Ndiscr_mon^2)*prod(subblocksperaxis)*0.98; 
-        sb = 1.4063e+04/(Ndiscr_mon^2)*prod(subblocksperaxis)*1.04;
+        sr = 180.708/(Ndiscr_mon^2)*prod(subblocksperaxis)*0.9; 
+        sg = 8.708/(Ndiscr_mon^2)*prod(subblocksperaxis)*0.9; 
+        sb = 8.708/(Ndiscr_mon^2)*prod(subblocksperaxis)*0.9;
+
+        camera_capture = double(imread("pattern2.tif"));
+        camera_capture = camera_capture(480:1568, 480:1568); % 这里的测量值也是人为的减去背景了
+        camera_capture(camera_capture<0) = 0;
+        camera_capture = fliplr(imresize(camera_capture, 0.2, 'bilinear')); % 坐标系统一，面向屏幕
+        test_image1 = camera_capture;
+        [r, c] = size(test_image1);
+        rgbImage = zeros(r, c, 3);
+        rgbImage(:, :, 1) = test_image1;
+        rgbImage(:, :, 2) = test_image1;
+        rgbImage(:, :, 3) = test_image1;
+        test_image1 = rgbImage;
+        %figure();
+        %imshow(camera_capture, []);
+        
 end
 
 %%
@@ -157,26 +174,111 @@ occ_corner(4,:,2) = Occ_LLcorner + [Occ_size(1)/2+0.0035, 0, -Occ_LLcorner(3)];
 %% Simulate Transport Matrix
 disp('Simulating transport matrix...') % 关注下需要提供哪些参数，最后一个参数是moniter depth
 [simA] = simulate_A(wallparam, (occ_corner),simuParams, Mon_xdiscr,Mon_zdiscr, 0);
+%simA = load("nlos.mat").simA;
+save('nlos128.mat', 'simA');
 
-pattern = imread("pattern.tif");
-pattern = pattern(480:1568, 480:1568)-220;
+% 加载隐藏图片
+hidden = imread("mushroom128.png");
+imshow(hidden, [])
+hidden = hidden/255;
+imshow(double(hidden));
+% 分别对三个通道进行列化
+r = hidden(:,:,1);
+imshow(r, []);
+r = r(:);
+g = hidden(:,:,2);
+imshow(g, []);
+g = g(:);
+b = hidden(:,:,3);
+imshow(b, []);
+b = b(:);
+
+
+h_r_mean = mean(r);
+h_g_mean = mean(g);
+h_b_mean = mean(b);
+
+y1 = simA * double(r);
+y2 = simA * double(g);
+y3 = simA * double(b);
+
+proj_r_mean = mean(y1);
+proj_g_mean = mean(y2);
+proj_b_mean = mean(y3);
+
+y1 = reshape(y1, [128 128]);
+figure();
+imshow(y1, []);
+y2 = reshape(y2, [128 128]);
+figure();
+imshow(y2, []);
+y3 = reshape(y3, [128 128]);
+figure();
+imshow(y3, []);
+y(:,:,1) = y1;
+y(:,:,2) = y2;
+y(:,:,3) = y3;
+figure()
+norm = max(max(y));
+y = y/max(max(max(y)));
+%noisy_image = imnoise(y, 'gaussian', 0, 0.001);
+image_power = var(double(y(:)));
+target_snr = 50;
+target_noise_power = image_power / (10^(target_snr/10));
+noisy_image = imnoise(y, 'gaussian', 0, target_noise_power)
+imshow(noisy_image, []);
+noisy = noisy_image -y;
+imshow(noisy, []);
+proj= noisy_image;
+gt = hidden;
+save("mushroom128.mat", 'simA', 'proj', 'gt');
+noise2 = awgn(y, 50, 'measured');
+noisy2 = noise2-y
+imshow(y, []);
+%A_inv = pinv(simA);
+y1 = noisy_image(:,:,1)
+%x = A_inv * y1(:)
+x = simA \ y1(:);
+
+%figure()
+%imshow(y, []); % 这里本身也就只是用了简单的Af, 还没有涉及到噪声的部分Af + b
+
+% [r, c] = size(y);
+% rgbImage = zeros(r, c, 3);
+% rgbImage(:, :, 1) = y;
+% rgbImage(:, :, 2) = y;
+% rgbImage(:, :, 3) = y;
+% test_image1 = rgbImage;
+
+pattern = imread("pattern2.tif");
+pattern = pattern(480:1568, 480:1568);
+%pattern = pattern(480:1568, 480:1568); % 试下不减去的看看
 pattern(pattern<0) = 0;
-pattern = fliplr(imresize(pattern, 0.2, 'bilinear')) % 重建出来的一维的列向量是和他显示block的顺序相关的
-
+pattern = fliplr(imresize(pattern, 0.2, 'bilinear')); % 就是说你的拍摄结果也要flip一下，改成是在墙后面看到的
+pattern = double(pattern);
+%pattern = imresize(pattern, 0.2, 'bilinear');
+% 加载由标定得到的A
+[simA] = load('A.mat');
 reconstruct = double(simA) \ double(pattern(:));
 restore = reshape(reconstruct, [8,8]);
 
-imshow(fliplr(restore))
+save('nlos.mat', 'pattern', 'simA') % 直接保存成结构体倒是挺炫酷的
+
+%imshow(fliplr(restore)); % 结果这里左右是否进行flip应该也无所谓
+figure()
+imshow(restore);
+
+
 
 %% Reconstruction 
 % sr, sg, sb 这些是进行重建的时候提供的，得到光传输矩阵以后，通过最优化的方法进行逆运算
-final_im1 = reconstruct_tv_it_cbg(simA,[sr,sg,sb],  test_image1, tv_reg_param, NumBlocks_sim, [0,0,0]);
+final_im1 = reconstruct_tv_it_cbg(simA,[sr,sg,sb],  test_image1, tv_reg_param, NumBlocks_sim, [0,0,0]); % test_image1换成restore看下
 
 %% Plots
 figure()
 
 subplot(1,2,1)
-imshow(ground_truth1/255)
-title('Ground truths')
-subplot(1,2,2)
-imshow(final_im1(:,:,:))
+%imshow(ground_truth1/255)
+%title('Ground truths')
+%subplot(1,2,2)
+imshow(final_im1(:,:,1), [])
