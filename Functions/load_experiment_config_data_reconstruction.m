@@ -61,8 +61,8 @@ switch TestLetter
     case '10-25'
         filename = 'TestPosD11'; % file_name要改成对应的，而且要知道他加载的目的是什么
         subblocksperaxis = [1 1];
-        NumBlocks_sim = [128 128].*subblocksperaxis;
-        NumBlocks_cal = [128 128];
+        NumBlocks_sim = [64 64].*subblocksperaxis;
+        NumBlocks_cal = [64 64];
         D = 1.03;
         
         % OCCLUDER DEFINITION
@@ -107,7 +107,7 @@ switch TestLetter
         NumBlocks_row = NumBlocks_cal(1);
         ScreenSize = [0.345 0.195];
         ScreenResolution = [3840 2160];
-        NumPixelsPerMonitorBlock = 16;
+        NumPixelsPerMonitorBlock = 33;
         PixelSize_m = (ScreenSize./ScreenResolution);
         
         % 这个应该是面对着屏幕的时候从右上角开始显示图片，所以要加上边缘的位置

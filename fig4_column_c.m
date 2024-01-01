@@ -175,36 +175,33 @@ occ_corner(4,:,2) = Occ_LLcorner + [Occ_size(1)/2+0.0035, 0, -Occ_LLcorner(3)];
 disp('Simulating transport matrix...') % 关注下需要提供哪些参数，最后一个参数是moniter depth
 [simA] = simulate_A(wallparam, (occ_corner),simuParams, Mon_xdiscr,Mon_zdiscr, 0);
 %simA = load("nlos.mat").simA;
-save('nlos128.mat', 'simA');
+save('nlos64.mat', 'simA');
 
 % 加载隐藏图片
-hidden = imread("mushroom128.png");
+hidden = imread("mushroom64.png");
 imshow(hidden, [])
 hidden = hidden/255;
 imshow(double(hidden));
 % 分别对三个通道进行列化
 r = hidden(:,:,1);
-imshow(r, []);
 r = r(:);
 g = hidden(:,:,2);
-imshow(g, []);
 g = g(:);
 b = hidden(:,:,3);
-imshow(b, []);
 b = b(:);
 
 
-h_r_mean = mean(r);
-h_g_mean = mean(g);
-h_b_mean = mean(b);
+% h_r_mean = mean(r);
+% h_g_mean = mean(g);
+% h_b_mean = mean(b);
 
 y1 = simA * double(r);
 y2 = simA * double(g);
 y3 = simA * double(b);
 
-proj_r_mean = mean(y1);
-proj_g_mean = mean(y2);
-proj_b_mean = mean(y3);
+% proj_r_mean = mean(y1);
+% proj_g_mean = mean(y2);
+% proj_b_mean = mean(y3);
 
 y1 = reshape(y1, [128 128]);
 figure();
@@ -231,7 +228,7 @@ noisy = noisy_image -y;
 imshow(noisy, []);
 proj= noisy_image;
 gt = hidden;
-save("mushroom128.mat", 'simA', 'proj', 'gt');
+save("mushroom64.mat", 'simA', 'proj', 'gt');
 noise2 = awgn(y, 50, 'measured');
 noisy2 = noise2-y
 imshow(y, []);
