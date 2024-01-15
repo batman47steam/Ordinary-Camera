@@ -1,4 +1,4 @@
-function [reconstruction] = reconstruct_tv_it_cbg(A,cscale, measurement, reg, NumBlocks, tik_reg)
+function [reconstruction] = reconstruct_tv_it_cbg(A,cscale, measurement, reg, NumBlocks, tik_reg, gt)
 %% Forms the scene reconstruction given a measurement image and using the A matrices.
   
    % Difference matrix
@@ -13,10 +13,13 @@ function [reconstruction] = reconstruct_tv_it_cbg(A,cscale, measurement, reg, Nu
     AT = dA';
     ATA = AT*dA;
 
-    % simA = dA
-    % pattern = mr
-    % pattern = reshape(pattern, [218, 218])
-    % save('nlos.mat', 'pattern', 'simA') % 直接保存成结构体倒是挺炫酷的
+    proj(:,:,1) = reshape(mr, [128, 128]);%opt{1};   
+    proj(:,:,2) = reshape(mg, [128, 128]);%opt{2};
+    proj(:,:,3) = reshape(mb, [128, 128]);%opt{3};
+
+    simA = dA;
+    gt = gt;
+    save('mushroom64b_d.mat', 'simA', 'proj', 'gt');
 
     % Initial estimates，得到初始估计，就是没有用最优化的方法，直接通过伪逆来得到初始的估计
     disp(' Making initial estimate...')
@@ -38,11 +41,11 @@ function [reconstruction] = reconstruct_tv_it_cbg(A,cscale, measurement, reg, Nu
     testb = rs(( cscale(3)^2 * ATA + tik_reg(3)^4*(DtD))\(cscale(3)*AT) * mb(:));
     
     % init Gauss是由估计的A通过最小二乘得到
-    pattern = measurement(:,:,1);
-    testr = rs(double(A) \ double(pattern(:)));
-    imshow(testr, [])
+    % pattern = measurement(:,:,1);
+    % testr = rs(double(A) \ double(pattern(:)));
+    % imshow(testr, [])
     
-    imshow(testr, []) % 可以简单看下初始猜测求逆的结果, 好像不管cscale(1)不管怎么变，testr显示出来的pattern几乎不变
+    imshow(testg, []) % 可以简单看下初始猜测求逆的结果, 好像不管cscale(1)不管怎么变，testr显示出来的pattern几乎不变
     %%
     % TV Parameters
     tvparams.constraints = 'none';

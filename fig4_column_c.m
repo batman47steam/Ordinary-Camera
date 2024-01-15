@@ -173,13 +173,14 @@ occ_corner(4,:,2) = Occ_LLcorner + [Occ_size(1)/2+0.0035, 0, -Occ_LLcorner(3)];
 
 %% Simulate Transport Matrix
 disp('Simulating transport matrix...') % 关注下需要提供哪些参数，最后一个参数是moniter depth
-[simA] = simulate_A(wallparam, (occ_corner),simuParams, Mon_xdiscr,Mon_zdiscr, 0);
-%simA = load("nlos.mat").simA;
-save('nlos64.mat', 'simA');
+%[simA] = simulate_A(wallparam, (occ_corner),simuParams, Mon_xdiscr,Mon_zdiscr, 0);
+simA = load("nlos64.mat").simA;
+%save('nlos128.mat', 'simA');
 
 % 加载隐藏图片
 hidden = imread("mushroom64.png");
 imshow(hidden, [])
+hidden = double(hidden)
 hidden = hidden/255;
 imshow(double(hidden));
 % 分别对三个通道进行列化
@@ -190,6 +191,8 @@ g = g(:);
 b = hidden(:,:,3);
 b = b(:);
 
+% 读入手机拍摄的环境光下的background
+background = imread("background128.jpg");
 
 % h_r_mean = mean(r);
 % h_g_mean = mean(g);
@@ -204,73 +207,80 @@ y3 = simA * double(b);
 % proj_b_mean = mean(y3);
 
 y1 = reshape(y1, [128 128]);
-figure();
-imshow(y1, []);
+% figure();
+% imshow(y1, []);
 y2 = reshape(y2, [128 128]);
 figure();
 imshow(y2, []);
 y3 = reshape(y3, [128 128]);
-figure();
-imshow(y3, []);
+% figure();
+% imshow(y3, []);
 y(:,:,1) = y1;
 y(:,:,2) = y2;
 y(:,:,3) = y3;
+
+% 先往measurement的结果上添加SBR
+y = y + 10 * double(background);
+
+
+figure();
+imshow(y(:,:,2), []);
+
+
 figure()
-norm = max(max(y));
 y = y/max(max(max(y)));
-%noisy_image = imnoise(y, 'gaussian', 0, 0.001);
-image_power = var(double(y(:)));
-target_snr = 50;
-target_noise_power = image_power / (10^(target_snr/10));
-noisy_image = imnoise(y, 'gaussian', 0, target_noise_power)
-imshow(noisy_image, []);
-noisy = noisy_image -y;
-imshow(noisy, []);
+noisy_image = awgn(y, 50, 'measured'); % 加了measured，确保最后整体的psnr是50db
 proj= noisy_image;
 gt = hidden;
-save("mushroom64.mat", 'simA', 'proj', 'gt');
-noise2 = awgn(y, 50, 'measured');
-noisy2 = noise2-y
-imshow(y, []);
-%A_inv = pinv(simA);
-y1 = noisy_image(:,:,1)
-%x = A_inv * y1(:)
-x = simA \ y1(:);
+save("mushroom64_b.mat", 'simA', 'proj', 'gt');
 
-%figure()
-%imshow(y, []); % 这里本身也就只是用了简单的Af, 还没有涉及到噪声的部分Af + b
 
-% [r, c] = size(y);
-% rgbImage = zeros(r, c, 3);
-% rgbImage(:, :, 1) = y;
-% rgbImage(:, :, 2) = y;
-% rgbImage(:, :, 3) = y;
-% test_image1 = rgbImage;
-
-pattern = imread("pattern2.tif");
-pattern = pattern(480:1568, 480:1568);
-%pattern = pattern(480:1568, 480:1568); % 试下不减去的看看
-pattern(pattern<0) = 0;
-pattern = fliplr(imresize(pattern, 0.2, 'bilinear')); % 就是说你的拍摄结果也要flip一下，改成是在墙后面看到的
-pattern = double(pattern);
-%pattern = imresize(pattern, 0.2, 'bilinear');
-% 加载由标定得到的A
-[simA] = load('A.mat');
-reconstruct = double(simA) \ double(pattern(:));
-restore = reshape(reconstruct, [8,8]);
-
-save('nlos.mat', 'pattern', 'simA') % 直接保存成结构体倒是挺炫酷的
-
-%imshow(fliplr(restore)); % 结果这里左右是否进行flip应该也无所谓
-figure()
-imshow(restore);
+% % 求伪逆测试结果
+% A_inv = pinv(simA);
+% y_r = noisy_image(:,:,1)
+% y_g = noisy_image(:,:,2)
+% y_b = noisy_image(:,:,3)
+% 
+% % 利用最小二乘去求初始结果
+% r_init = A \ y_r(:)
+% g_init = A \ y_g(:)
+% b_init = A \ y_b(:)
+% %x = A_inv * y1(:)
+% x = simA \ y1(:);
+% 
+% %figure()
+% %imshow(y, []); % 这里本身也就只是用了简单的Af, 还没有涉及到噪声的部分Af + b
+% 
+% % [r, c] = size(y);
+% % rgbImage = zeros(r, c, 3);
+% % rgbImage(:, :, 1) = y;
+% % rgbImage(:, :, 2) = y;
+% % rgbImage(:, :, 3) = y;
+% % test_image1 = rgbImage;
+% 
+% pattern = imread("pattern2.tif");
+% pattern = pattern(480:1568, 480:1568);
+% pattern(pattern<0) = 0;
+% pattern = fliplr(imresize(pattern, 0.2, 'bilinear')); % 就是说你的拍摄结果也要flip一下，改成是在墙后面看到的
+% pattern = double(pattern);
+% %pattern = imresize(pattern, 0.2, 'bilinear');
+% % 加载由标定得到的A
+% [simA] = load('A.mat');
+% reconstruct = double(simA) \ double(pattern(:));
+% restore = reshape(reconstruct, [8,8]);
+% 
+% save('nlos.mat', 'pattern', 'simA') % 直接保存成结构体倒是挺炫酷的
+% 
+% %imshow(fliplr(restore)); % 结果这里左右是否进行flip应该也无所谓
+% figure()
+% imshow(restore);
 
 
 
 %% Reconstruction 
 % sr, sg, sb 这些是进行重建的时候提供的，得到光传输矩阵以后，通过最优化的方法进行逆运算
-final_im1 = reconstruct_tv_it_cbg(simA,[sr,sg,sb],  test_image1, tv_reg_param, NumBlocks_sim, [0,0,0]); % test_image1换成restore看下
-
+%final_im1 = reconstruct_tv_it_cbg(simA,[sr,sg,sb],  test_image1, tv_reg_param, NumBlocks_sim, [0,0,0]); % test_image1换成restore看下
+final_im1 = reconstruct_tv_it_cbg(simA,[sr,sg,sb],  proj, tv_reg_param, NumBlocks_sim, [0,0,0], gt); % test_image1换成restore看下
 %% Plots
 figure()
 
